@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NHL Front</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+    <script src="https://unpkg.com/vue@3.2.26/dist/vue.global.prod.js"></script>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="columns mt-2">
+                <div class="column is-one-fifth">
+                    <div class="field">
+                        <span>От:</span>
+                        <input class="input" type="date" v-model="dateFromParse">
+                    </div>
+                </div>
+                <div class="column is-one-fifth">
+                    <div class="field">
+                        <span>До:</span>
+                        <input class="input" type="date" v-model="dateToParse">
+                    </div>
+                </div>
+                <div class="column" style="display: flex;align-items: flex-end;">
+                    <div class="buttons">
+                        <button 
+                            class="button is-link"
+                            :class="{'is-loading': loadingParsing}"
+                            @click="startParsing"
+                        >
+                            Запустить парсинг
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="columns">
+                <div class="column is-one-fifth">
+                    <div class="field">
+                        <span>От:</span>
+                        <input class="input" type="date" v-model="dateFromData">
+                    </div>
+                </div>
+                <div class="column is-one-fifth">
+                    <div class="field">
+                        <span>До:</span>
+                        <input class="input" type="date" v-model="dateToData">
+                    </div>
+                </div>
+                <div class="column" style="display: flex;align-items: flex-end;">
+                    <div class="buttons">
+                        <button 
+                            class="button is-success"
+                            :class="{'is-loading': loadingData}"
+                            @click="loadData"
+                        >
+                            Загрузить данные
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="columns">
+                <div class="column">
+                    <div class="select" v-if="cities.length > 0">
+                        <select v-model="selectCity">
+                            <option 
+                                v-for="(city, i) in cities"
+                                :key="i"
+                                :value="city"
+                            >
+                                {{ city }}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="columns">
+                <div class="column is-full">
+                    <table class="table">
+                        <thead>
+                            <th>Команда 1</th>
+                            <th>Команда 2</th>
+                            <th>Дата</th>
+                            <th>Счет</th>
+                            <th>Игроки</th>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="i in filtredData"
+                                :key="i.game_pk"
+                            >
+                                <td>{{ i.away_team_name }}</td>
+                                <td>{{ i.home_team_name }}</td>
+                                <td>{{ i.date }}</td>
+                                <td>{{ i.goals_away }} - {{ i.goals_home }}</td>
+                                <td>{{ i.players_name }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+<script>
+    const app = {
+        data() {
+            return {
+                API_URL: '/api/',
+                data: [],
+                loadingData: false,
+                loadingParsing: false,
+                dateFromParse: null,
+                dateToParse: null,
+                dateFromData: null,
+                dateToData: null,
+                cities: [],
+                selectCity: ''
+            }
+        },
+        methods: {
+            async startParsing() {
+                if (!(this.dateFromParse && this.dateToParse)) return
+                this.loadingParsing = true
+                try {
+                    const resp = await fetch(`${this.API_URL}parse/`, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            start_date: this.dateFromParse,
+                            end_date: this.dateToParse
+                        })
+                    })
+                    const res = await resp.json()
+                } catch {
+                    alert('Ошибка парсинга!!!')
+                }
+                this.loadingParsing = false
+            },
+            async loadData() {
+                if (!(this.dateFromData && this.dateToData)) return
+                this.loadingData = true
+                try {
+                    this.data = []
+                    this.cities = []
+                    const resp = await fetch(`${this.API_URL}get/`, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            start_date: this.dateFromData,
+                            end_date: this.dateToData
+                        })
+                    })
+                    this.data = await resp.json()
+                    this.cities = Array.from(new Set(Array.from(this.data, ({city}) => city)))
+                    this.selectCity = this.cities[0]
+                    this.data.forEach(el => {
+                        el.player_in_game.forEach(el2 => {
+                            let t = el2.player_even_time_on_ice.split(':')
+                            if (t.length == 2) {
+                                el2.playing_time = parseInt(t[0])*60 + parseInt(t[1])
+                            } else {
+                                el2.playing_time = 0
+                            }
+                        })
+                        el.player_in_game.sort((a, b) => b.playing_time - a.playing_time)
+                        el.player_in_game = el.player_in_game.slice(0, 3)
+                        let players = Array.from(el.player_in_game, ({player_full_name}) => player_full_name)
+                        el.players_name = players.join(', ')
+                    })
+                } catch {
+                    alert('Ошибка при загрузке данных!!!')
+                }
+                this.loadingData = false
+            }
+        },
+        computed: {
+            filtredData() {
+                return this.data.filter(item => item.city === this.selectCity)
+            }
+        }
+    }
+
+    Vue.createApp(app).mount('#app')
+</script>

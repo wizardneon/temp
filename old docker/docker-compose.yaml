@@ -1,0 +1,53 @@
+version: "3.9"
+services:
+  front:
+    build:
+      context: .
+      dockerfile: Dockerfile.front  
+    restart: unless-stopped
+    container_name: front
+    ports:
+      - 80:80
+    stdin_open: true
+          
+
+  back:
+    build:
+      context: .
+      dockerfile: Dockerfile.back  
+    restart: unless-stopped
+    container_name: back
+    ports:
+      - 8081:8081
+    networks:
+      - backend
+
+  database:
+    build:
+      context: .
+      dockerfile: Dockerfile.bd
+    container_name: database
+    env_file:
+      - ./env.list
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: /usr/local/bin/pg_isready --username=${POSTGRES_USER} || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+    volumes:
+       - pg-data:/var/lib/postgresql/data
+
+networks:
+  backend:
+
+volumes:
+  pg-data:

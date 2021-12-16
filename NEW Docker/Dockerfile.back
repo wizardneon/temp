@@ -1,0 +1,12 @@
+FROM python:latest 
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+RUN apt-get update -y
+
+RUN pip install tortoise-orm[asyncpg] requests typing_extensions python-dateutil fastapi uvicorn[standard] 
+  
+
+COPY back .
+
+CMD python main.py 

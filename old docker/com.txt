@@ -1,0 +1,3 @@
+sudo nano /etc/nginx/sites-available/default
+sudo systemctl start nginx
+sudo systemctl restart nginx

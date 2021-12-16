@@ -1,0 +1,11 @@
+    #sudo apt install -y python3-pip
+
+    # pip install tortoise-orm[asyncpg] requests typing_extensions python-dateutil fastapi uvicorn[standard]
+
+    #sudo /etc/init.d/apache2 start
+
+    # execute:
+
+    # python main.py
+
+    
